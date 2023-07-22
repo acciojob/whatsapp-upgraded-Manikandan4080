@@ -9,7 +9,7 @@ public class WhatsappRepository{
     private Map<String, User> userMap = new HashMap<>();//mobile - user
     private Map<Group, List<User>> groupListMap = new HashMap<>();//group - members
     private Map<Group, List<Message>> groupMessages = new HashMap<>();//group - messages
-    private Map<Message, User> messageUserMap = new HashMap<>();//message - sender
+    private Map<User, List<Message>> userMessages = new HashMap<>();//sender - messages
     private Map<Group, User> adminMap = new HashMap<>();//group - admin
     private int numberOfGroups = 0;
     private int messageId = 0;
@@ -23,11 +23,6 @@ public class WhatsappRepository{
     }
 
     public Group createGroup(List<User> users){
-        // The list contains at least 2 users where the first user is the admin. A group has exactly one admin.
-        // If there are only 2 users, the group is a personal chat and the group name should be kept as the name of the second user(other than admin)
-        // If there are 2+ users, the name of group should be "Group count". For example, the name of first group would be "Group 1", second would be "Group 2" and so on.
-        // Note that a personal chat is not considered a group and the count is not updated for personal chats.
-        // If group is successfully created, return group.
 
         Group group = new Group();
 
@@ -64,7 +59,10 @@ public class WhatsappRepository{
         List<Message> messages = groupMessages.getOrDefault(group, new ArrayList<>());
         messages.add(message);
         groupMessages.put(group, messages);
-        messageUserMap.put(message, sender);
+
+        List<Message> usersMesagesList = userMessages.getOrDefault(sender, new ArrayList<>());
+        usersMesagesList.add(message);
+        userMessages.put(sender, usersMesagesList);
 
         return groupMessages.get(group).size();
     }
@@ -88,4 +86,56 @@ public class WhatsappRepository{
 
         return "SUCCESS";
     }
+
+    public int removeUser(User user) throws Exception {
+        //A user belongs to exactly one group
+        //If user is not found in any group, throw "User not found" exception
+        //If user is found in a group and it is the admin, throw "Cannot remove admin" exception
+        //If user is not the admin, remove the user from the group, remove all its messages from all the databases, and update relevant attributes accordingly.
+        //If user is removed successfully, return (the updated number of users in the group +
+        // the updated number of messages in group +
+        // the updated number of overall messages)
+
+        if(!userMap.containsKey(user.getMobile()))
+            throw new Exception("User not found");
+
+        if(adminMap.containsKey(user))
+            throw new Exception("Cannot remove admin");
+
+        Group group = null;
+        for(Group group1 : groupListMap.keySet()){
+            List<User> users = groupListMap.get(group1);
+            if(ifExistInGroup(user, users)){
+                group = group1;
+                break;
+            }
+        }
+
+        List<Message> groupMessage = groupMessages.get(user);
+        for(Message message : userMessages.get(user)){
+            groupMessage.remove(message);
+            messageId--;
+        }//removing messages in group
+        groupMessages.put(group, groupMessage);
+
+        userMap.remove(user.getMobile());
+
+        List<User> users = groupListMap.get(group);
+        users.remove(user);
+        groupListMap.put(group, users);
+        group.setNumberOfParticipants(users.size());
+
+        int updatedNumberOfUser = groupListMap.get(group).size();
+        int updatedMessages = groupMessages.get(group).size();
+
+        return updatedNumberOfUser + updatedMessages + messageId;
+    }
+    public boolean ifExistInGroup(User user, List<User> list){
+        for(User u : list){
+            if(user.equals(u))
+                return true;
+        }
+        return false;
+    }
+
 }
