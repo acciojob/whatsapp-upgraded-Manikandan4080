@@ -17,9 +17,14 @@ public class WhatsappRepository{
     public boolean isNewUser(String mobile){
         return userMap.containsKey(mobile);
     }
-    public void addUser(String name, String mobile) {
+    public String  addUser(String name, String mobile) throws Exception {
+        if(userMap.containsKey(mobile))
+            throw new Exception("User already exists");
+
         User user = new User(name, mobile);
         userMap.put(mobile, user);
+
+        return "SUCCESS";
     }
 
     public Group createGroup(List<User> users){
@@ -34,7 +39,7 @@ public class WhatsappRepository{
             return group;
         }
 
-        numberOfGroups++;
+        numberOfGroups+=1;
         String groupName = "Group "+numberOfGroups;
         group.setName(groupName);
         group.setNumberOfParticipants(users.size());
@@ -45,7 +50,7 @@ public class WhatsappRepository{
     }
 
     public int createMessage(String content) {
-        messageId++;
+        messageId+=1;
         Message message = new Message(messageId, content, new Date());
         return messageId;
     }
@@ -96,12 +101,6 @@ public class WhatsappRepository{
         // the updated number of messages in group +
         // the updated number of overall messages)
 
-        if(!userMap.containsKey(user.getMobile()))
-            throw new Exception("User not found");
-
-        if(adminMap.containsKey(user))
-            throw new Exception("Cannot remove admin");
-
         Group group = null;
         for(Group group1 : groupListMap.keySet()){
             List<User> users = groupListMap.get(group1);
@@ -111,12 +110,18 @@ public class WhatsappRepository{
             }
         }
 
+        if(group == null)
+            throw new Exception("User not found");
+
+        if(adminMap.containsKey(user))
+            throw new Exception("Cannot remove admin");
+
         List<Message> groupMessage = groupMessages.get(user);
         for(Message message : userMessages.get(user)){
             groupMessage.remove(message);
-            messageId--;
-        }//removing messages in group
+        }
         groupMessages.put(group, groupMessage);
+        userMessages.remove(user);
 
         userMap.remove(user.getMobile());
 
@@ -126,9 +131,14 @@ public class WhatsappRepository{
         group.setNumberOfParticipants(users.size());
 
         int updatedNumberOfUser = groupListMap.get(group).size();
-        int updatedMessages = groupMessages.get(group).size();
+        int updatedGroupMessages = groupMessages.get(group).size();
 
-        return updatedNumberOfUser + updatedMessages + messageId;
+        int updatesMessages = 0;
+        for(User u1 : userMessages.keySet()){
+            updatesMessages += userMessages.get(u1).size();
+        }
+
+        return updatedNumberOfUser + updatedGroupMessages + updatesMessages;
     }
     public boolean ifExistInGroup(User user, List<User> list){
         for(User u : list){
